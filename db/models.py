@@ -30,6 +30,19 @@ ZAEHLER_INFO = {
 }
 
 
+class Ordner(Base):
+    """Ordner zur Gruppierung von Gebäuden."""
+    __tablename__ = "ordner"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    reihenfolge = Column(Integer, default=0)  # Für Sortierung
+    erstellt_am = Column(DateTime, default=datetime.now)
+
+    # Relationships
+    gebaeude = relationship("Gebaeude", back_populates="ordner")
+
+
 class Benutzer(Base):
     """Telegram-Benutzer."""
     __tablename__ = "benutzer"
@@ -52,12 +65,14 @@ class Gebaeude(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(200), nullable=False)
     adresse = Column(String(300), nullable=True)
+    ordner_id = Column(Integer, ForeignKey("ordner.id"), nullable=True)  # Optional: Ordner-Zuordnung
     gps_lat = Column(Float, nullable=True)
     gps_lon = Column(Float, nullable=True)
     notizen = Column(Text, nullable=True)
     erstellt_am = Column(DateTime, default=datetime.now)
 
     # Relationships
+    ordner = relationship("Ordner", back_populates="gebaeude")
     zaehler = relationship("Zaehler", back_populates="gebaeude", cascade="all, delete-orphan")
     berichte = relationship("Bericht", back_populates="gebaeude", cascade="all, delete-orphan")
 

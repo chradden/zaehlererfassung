@@ -17,7 +17,7 @@ Base = declarative_base()
 
 def init_db():
     """Erstellt alle Tabellen."""
-    from db.models import Benutzer, Gebaeude, Zaehler, Ablesung, ZaehlerFoto, Bericht
+    from db.models import Benutzer, Gebaeude, Zaehler, Ablesung, ZaehlerFoto, Bericht, Ordner
     Base.metadata.create_all(bind=engine)
 
 

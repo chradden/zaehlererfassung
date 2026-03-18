@@ -14,7 +14,7 @@ from sqlalchemy import func
 
 import config
 from db.database import get_session
-from db.models import Gebaeude, Benutzer, Zaehler, Ablesung, ZaehlerFoto, Bericht, ZAEHLER_INFO
+from db.models import Gebaeude, Benutzer, Zaehler, Ablesung, ZaehlerFoto, Bericht, Ordner, ZAEHLER_INFO
 from core.docx_export import generiere_bericht
 
 logger = logging.getLogger(__name__)
@@ -55,16 +55,17 @@ def auth_pruefen(credentials: HTTPBasicCredentials = Depends(security)):
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, auth=Depends(auth_pruefen)):
-    """Hauptseite – Gebäudeübersicht mit Statistiken."""
+    """Hauptseite – Gebäudeübersicht mit Statistiken, gruppiert nach Ordnern."""
     with get_session() as session:
+        # Ordner laden
+        ordner_liste = session.query(Ordner).order_by(Ordner.reihenfolge, Ordner.name).all()
+        
+        # Gebäude laden
         gebaeude_liste = session.query(Gebaeude).all()
         
-        gebaeude_daten = []
-        for g in gebaeude_liste:
-            # Zähler zählen
+        # Gebäude-Daten sammeln
+        def gebaeude_zu_dict(g):
             zaehler_count = session.query(Zaehler).filter_by(gebaeude_id=g.id).count()
-            
-            # Letzte Ablesung
             letzte_ablesung = (
                 session.query(Ablesung)
                 .join(Zaehler)
@@ -72,8 +73,6 @@ async def dashboard(request: Request, auth=Depends(auth_pruefen)):
                 .order_by(Ablesung.ablesedatum.desc())
                 .first()
             )
-            
-            # Verbrauch letzter 30 Tage (vereinfacht)
             vor_30_tagen = date.today() - timedelta(days=30)
             ablesungen_30 = (
                 session.query(Ablesung)
@@ -84,22 +83,38 @@ async def dashboard(request: Request, auth=Depends(auth_pruefen)):
                 )
                 .count()
             )
-            
-            gebaeude_daten.append({
+            return {
                 "id": g.id,
                 "name": g.name,
                 "adresse": g.adresse or "–",
+                "ordner_id": g.ordner_id,
                 "zaehler_count": zaehler_count,
                 "letzte_ablesung": letzte_ablesung.ablesedatum if letzte_ablesung else None,
                 "ablesungen_30_tage": ablesungen_30,
+            }
+        
+        gebaeude_daten = [gebaeude_zu_dict(g) for g in gebaeude_liste]
+        
+        # Ordner-Daten mit Gebäuden
+        ordner_daten = []
+        for o in ordner_liste:
+            ordner_daten.append({
+                "id": o.id,
+                "name": o.name,
+                "gebaeude": [g for g in gebaeude_daten if g["ordner_id"] == o.id],
             })
+        
+        # Gebäude ohne Ordner
+        ohne_ordner = [g for g in gebaeude_daten if g["ordner_id"] is None]
     
     return templates.TemplateResponse(
         "dashboard.html",
         {
             "request": request,
             "titel": "Zählererfassung",
-            "gebaeude": gebaeude_daten,
+            "ordner": ordner_daten,
+            "ohne_ordner": ohne_ordner,
+            "gebaeude": gebaeude_daten,  # Alle Gebäude (für Kompatibilität)
             "zaehler_info": ZAEHLER_INFO,
         },
     )
@@ -428,3 +443,72 @@ async def api_stats(gebaeude_id: int, auth=Depends(auth_pruefen)):
             "zaehler_count": zaehler_count,
             "verbrauch_nach_typ": verbrauch_nach_typ,
         }
+
+
+# ─── Ordner-Verwaltung ───────────────────────────────────────────────────
+
+@app.post("/api/ordner")
+async def ordner_erstellen(request: Request, auth=Depends(auth_pruefen)):
+    """Neuen Ordner erstellen."""
+    data = await request.json()
+    name = data.get("name", "").strip()
+    
+    if not name:
+        raise HTTPException(status_code=400, detail="Name erforderlich")
+    
+    with get_session() as session:
+        ordner = Ordner(name=name)
+        session.add(ordner)
+        session.flush()
+        return {"id": ordner.id, "name": ordner.name}
+
+
+@app.put("/api/ordner/{ordner_id}")
+async def ordner_umbenennen(ordner_id: int, request: Request, auth=Depends(auth_pruefen)):
+    """Ordner umbenennen."""
+    data = await request.json()
+    name = data.get("name", "").strip()
+    
+    if not name:
+        raise HTTPException(status_code=400, detail="Name erforderlich")
+    
+    with get_session() as session:
+        ordner = session.get(Ordner, ordner_id)
+        if not ordner:
+            raise HTTPException(status_code=404, detail="Ordner nicht gefunden")
+        ordner.name = name
+        return {"id": ordner.id, "name": ordner.name}
+
+
+@app.delete("/api/ordner/{ordner_id}")
+async def ordner_loeschen(ordner_id: int, auth=Depends(auth_pruefen)):
+    """Ordner löschen (Gebäude bleiben erhalten, werden aus Ordner entfernt)."""
+    with get_session() as session:
+        ordner = session.get(Ordner, ordner_id)
+        if not ordner:
+            raise HTTPException(status_code=404, detail="Ordner nicht gefunden")
+        
+        # Gebäude aus Ordner entfernen
+        session.query(Gebaeude).filter_by(ordner_id=ordner_id).update({"ordner_id": None})
+        session.delete(ordner)
+        return {"success": True}
+
+
+@app.put("/api/gebaeude/{gebaeude_id}/ordner")
+async def gebaeude_in_ordner(gebaeude_id: int, request: Request, auth=Depends(auth_pruefen)):
+    """Gebäude einem Ordner zuweisen oder aus Ordner entfernen."""
+    data = await request.json()
+    ordner_id = data.get("ordner_id")  # None = aus Ordner entfernen
+    
+    with get_session() as session:
+        gebaeude = session.get(Gebaeude, gebaeude_id)
+        if not gebaeude:
+            raise HTTPException(status_code=404, detail="Gebäude nicht gefunden")
+        
+        if ordner_id is not None:
+            ordner = session.get(Ordner, ordner_id)
+            if not ordner:
+                raise HTTPException(status_code=404, detail="Ordner nicht gefunden")
+        
+        gebaeude.ordner_id = ordner_id
+        return {"success": True, "ordner_id": ordner_id}

@@ -71,6 +71,7 @@ async def bericht_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gebaeude_id = gebaeude.id
         gebaeude_name = gebaeude.name
         gebaeude_adresse = gebaeude.adresse
+        benutzer_name = benutzer.name  # Außerhalb der Session benötigt
 
         # Zähler und Ablesungen laden
         zaehler_liste = session.query(Zaehler).filter_by(gebaeude_id=gebaeude_id).all()
@@ -158,7 +159,7 @@ async def bericht_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             von_datum=von_datum,
             bis_datum=bis_datum,
             zaehler_daten=zaehler_daten,
-            ersteller=benutzer.name,
+            ersteller=benutzer_name,
         )
     except Exception as e:
         logger.error(f"Bericht-Erstellung fehlgeschlagen: {e}")

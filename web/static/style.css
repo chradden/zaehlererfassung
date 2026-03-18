@@ -199,6 +199,90 @@ code { background: var(--gray-200); padding: 0.1em 0.4em; border-radius: 4px; fo
 .info-card h3 { font-size: 1rem; margin-bottom: 0.5rem; }
 .info-card p { font-size: 0.9rem; color: var(--gray-500); margin: 0; }
 
+/* ─── Ordner ────────────────────────────────────────────────────────────── */
+.ordner-actions { margin-bottom: 1.5rem; }
+.ordner-section {
+  background: white;
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.ordner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--gray-100);
+  border-bottom: 1px solid var(--gray-200);
+}
+.ordner-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  flex: 1;
+}
+.ordner-toggle h2 { margin: 0; font-size: 1.1rem; }
+.ordner-icon { font-size: 1.25rem; }
+.toggle-icon { font-size: 0.75rem; color: var(--gray-500); width: 1rem; }
+.ordner-menu { display: flex; gap: 0.25rem; }
+.ordner-content { padding: 1rem; }
+.ordner-content .grid { margin: 0; }
+.ordner-section.ohne-ordner .ordner-header { background: transparent; border-bottom: none; }
+.ordner-section.ohne-ordner { background: transparent; box-shadow: none; }
+.ordner-section.ohne-ordner .ordner-content { padding: 0; }
+
+/* Ordner-Select in Karte */
+.ordner-select {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: white;
+  cursor: pointer;
+  max-width: 140px;
+}
+.ordner-select:hover { border-color: var(--primary); }
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  min-width: 300px;
+  max-width: 90%;
+}
+.modal-content h3 { margin: 0 0 1rem; }
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+}
+.modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+/* Drag & Drop */
+.gebaeude-card.dragging { opacity: 0.5; }
+.gebaeude-card[draggable="true"] { cursor: grab; }
+.gebaeude-card[draggable="true"]:active { cursor: grabbing; }
+
 /* ─── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .container { padding: 1rem; }
