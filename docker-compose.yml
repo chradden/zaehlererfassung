@@ -6,7 +6,7 @@ services:
     container_name: zaehlererfassung
     restart: unless-stopped
     ports:
-      - "8060:8060"
+      - "8094:8094"
     volumes:
       # Persistente Daten
       - ./data:/app/data
@@ -19,7 +19,7 @@ services:
       - DASHBOARD_USER=${DASHBOARD_USER:-admin}
       - DASHBOARD_PASSWORT=${DASHBOARD_PASSWORT:-}
       - DATABASE_URL=sqlite:///./data/zaehlererfassung.db
-      - DASHBOARD_PORT=8060
+      - DASHBOARD_PORT=8094
 
 networks:
   default:

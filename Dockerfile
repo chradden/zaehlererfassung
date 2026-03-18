@@ -18,11 +18,11 @@ COPY . .
 RUN mkdir -p uploads output templates
 
 # Port für Dashboard
-EXPOSE 8060
+EXPOSE 8094
 
 # Health-Check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8060/ || exit 1
+    CMD curl -f http://localhost:8094/ || exit 1
 
 # Standardbefehl: Bot + Dashboard
 CMD ["python", "run.py"]

@@ -53,7 +53,7 @@ DASHBOARD_PASSWORT=dein-sicheres-passwort
 DATABASE_URL=sqlite:///./data/zaehlererfassung.db
 
 # Dashboard Port
-DASHBOARD_PORT=8060
+DASHBOARD_PORT=8094
 ```
 
 Speichern mit `Ctrl+O`, schließen mit `Ctrl+X`.
@@ -70,7 +70,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Der Bot und das Dashboard starten automatisch. Das Dashboard ist auf Port 8060 erreichbar.
+Der Bot und das Dashboard starten automatisch. Das Dashboard ist auf Port 8094 erreichbar.
 
 ---
 
@@ -80,7 +80,7 @@ Füge folgenden Block zu deiner Caddyfile hinzu:
 
 ```caddyfile
 zaehler.christianradden.de {
-        reverse_proxy localhost:8060
+        reverse_proxy localhost:8094
         }
 }
 ```
@@ -137,8 +137,8 @@ docker compose up -d --build
 
 ### Port bereits belegt?
 ```bash
-# Prüfen welcher Prozess Port 8060 nutzt
-sudo lsof -i :8060
+# Prüfen welcher Prozess Port 8094 nutzt
+sudo lsof -i :8094
 ```
 
 ### Container startet nicht?
@@ -153,7 +153,7 @@ docker compose up
 ### Caddy findet den Service nicht?
 ```bash
 # Testen ob der Port intern erreichbar ist
-curl localhost:8060
+curl localhost:8094
 ```
 
 ---
@@ -167,4 +167,4 @@ sudo ufw allow 80
 sudo ufw allow 443
 ```
 
-Port 8060 muss **nicht** extern freigegeben werden – Caddy greift intern darauf zu.
+Port 8094 muss **nicht** extern freigegeben werden – Caddy greift intern darauf zu.
