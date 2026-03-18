@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Umgebungen
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Datenbank
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Uploads & Output
+uploads/
+output/
+
+# Logs
+*.log
+logs/
+
+# Temporäre Dateien
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db

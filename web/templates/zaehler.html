@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="breadcrumb">
+    <a href="/">Dashboard</a> &raquo; 
+    <a href="/gebaeude/{{ gebaeude.id }}">{{ gebaeude.name }}</a> &raquo;
+    <span>{{ zaehler.info.name }}</span>
+</nav>
+
+<div class="page-header">
+    <span class="zaehler-icon-large">{{ zaehler.info.icon }}</span>
+    <div>
+        <h1>{{ zaehler.info.name }}</h1>
+        <p class="subtitle">
+            {% if zaehler.zaehlernummer != '–' %}
+            Nr. {{ zaehler.zaehlernummer }}
+            {% endif %}
+            {% if zaehler.standort != '–' %}
+            &bull; {{ zaehler.standort }}
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="zaehler-meta">
+    <div class="meta-item">
+        <span class="label">Typ:</span>
+        <span class="value">{{ zaehler.info.name }}</span>
+    </div>
+    <div class="meta-item">
+        <span class="label">Einheit:</span>
+        <span class="value">{{ zaehler.info.einheit }}</span>
+    </div>
+    {% if zaehler.hersteller %}
+    <div class="meta-item">
+        <span class="label">Hersteller:</span>
+        <span class="value">{{ zaehler.hersteller }}</span>
+    </div>
+    {% endif %}
+    {% if zaehler.modell %}
+    <div class="meta-item">
+        <span class="label">Modell:</span>
+        <span class="value">{{ zaehler.modell }}</span>
+    </div>
+    {% endif %}
+</div>
+
+{% if chart_labels|length > 1 %}
+<section class="chart-section">
+    <h2>📈 Verlauf</h2>
+    <div class="chart-container">
+        <canvas id="chartStand"></canvas>
+    </div>
+    
+    {% if chart_verbrauch|sum > 0 %}
+    <h3>Verbrauch je Ablesung</h3>
+    <div class="chart-container">
+        <canvas id="chartVerbrauch"></canvas>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
+
+<section class="ablesungen-section">
+    <h2>📋 Ablesungen ({{ ablesungen|length }})</h2>
+    
+    {% if ablesungen %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th class="text-right">Stand</th>
+                    <th class="text-right">Verbrauch</th>
+                    <th class="text-right">Tage</th>
+                    <th class="text-right">Ø/Tag</th>
+                    <th>Quelle</th>
+                    <th>Foto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in ablesungen %}
+                <tr>
+                    <td>{{ a.datum.strftime('%d.%m.%Y') }}</td>
+                    <td class="text-right"><strong>{{ "%.2f"|format(a.stand) }}</strong> {{ zaehler.info.einheit }}</td>
+                    <td class="text-right">
+                        {% if a.verbrauch is not none %}
+                        {{ "%.2f"|format(a.verbrauch) }}
+                        {% else %}–{% endif %}
+                    </td>
+                    <td class="text-right">{{ a.tage or '–' }}</td>
+                    <td class="text-right">
+                        {% if a.verbrauch_pro_tag is not none %}
+                        {{ "%.3f"|format(a.verbrauch_pro_tag) }}
+                        {% else %}–{% endif %}
+                    </td>
+                    <td>
+                        {% if a.ki_erkannt %}
+                        <span class="badge badge-info" title="Von KI erkannt">🤖 KI</span>
+                        {% else %}
+                        <span class="badge badge-secondary">Manuell</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a.foto_id %}
+                        <a href="/foto/{{ a.foto_id }}" target="_blank" class="btn btn-sm btn-link">📷</a>
+                        {% else %}–{% endif %}
+                    </td>
+                </tr>
+                {% if a.notizen %}
+                <tr class="notizen-row">
+                    <td colspan="7" class="notizen">📝 {{ a.notizen }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state small">
+        <p>Noch keine Ablesungen erfasst.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if chart_labels|length > 1 %}
+<script>
+// Zählerstand-Verlauf
+const ctxStand = document.getElementById('chartStand').getContext('2d');
+new Chart(ctxStand, {
+    type: 'line',
+    data: {
+        labels: {{ chart_labels|tojson }},
+        datasets: [{
+            label: 'Zählerstand ({{ zaehler.info.einheit }})',
+            data: {{ chart_staende|tojson }},
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+            fill: true,
+            tension: 0.2,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: false }
+        }
+    }
+});
+
+{% if chart_verbrauch|sum > 0 %}
+// Verbrauch-Diagramm
+const ctxVerbrauch = document.getElementById('chartVerbrauch').getContext('2d');
+new Chart(ctxVerbrauch, {
+    type: 'bar',
+    data: {
+        labels: {{ chart_labels|tojson }},
+        datasets: [{
+            label: 'Verbrauch ({{ zaehler.info.einheit }})',
+            data: {{ chart_verbrauch|tojson }},
+            backgroundColor: '#27ae60',
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true }
+        }
+    }
+});
+{% endif %}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="breadcrumb">
+    <a href="/">Dashboard</a> &raquo; <span>{{ gebaeude.name }}</span>
+</nav>
+
+<div class="page-header">
+    <h1>🏠 {{ gebaeude.name }}</h1>
+    {% if gebaeude.adresse %}
+    <p class="subtitle">📍 {{ gebaeude.adresse }}</p>
+    {% endif %}
+</div>
+
+<div class="actions-bar">
+    <form action="/gebaeude/{{ gebaeude.id }}/bericht" method="post" style="display:inline;">
+        <button type="submit" class="btn btn-primary">📄 Word-Bericht erstellen</button>
+    </form>
+    <a href="/export/{{ gebaeude.id }}/csv" class="btn btn-secondary">📥 CSV exportieren</a>
+</div>
+
+{% if zaehler %}
+<div class="zaehler-grid">
+    {% for z in zaehler %}
+    <div class="card zaehler-card {{ z.typ }}">
+        <div class="card-header">
+            <span class="zaehler-icon">{{ z.info.icon }}</span>
+            <div class="zaehler-title">
+                <h3><a href="/zaehler/{{ z.id }}">{{ z.info.name }}</a></h3>
+                <span class="zaehlernummer">{{ z.zaehlernummer }}</span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if z.standort %}
+            <p class="standort">📍 {{ z.standort }}</p>
+            {% endif %}
+            
+            {% if z.letzter_stand is not none %}
+            <div class="aktueller-stand">
+                <span class="stand-wert">{{ "%.2f"|format(z.letzter_stand) }}</span>
+                <span class="stand-einheit">{{ z.info.einheit }}</span>
+            </div>
+            <p class="stand-datum">
+                Stand vom {{ z.letzte_ablesung.strftime('%d.%m.%Y') if z.letzte_ablesung else '–' }}
+            </p>
+            
+            {% if z.verbrauch_letzte is not none %}
+            <div class="verbrauch-info">
+                <span class="verbrauch-label">Letzter Verbrauch:</span>
+                <span class="verbrauch-wert">{{ "%.2f"|format(z.verbrauch_letzte) }} {{ z.info.einheit }}</span>
+            </div>
+            {% endif %}
+            {% else %}
+            <p class="muted">Noch keine Ablesung</p>
+            {% endif %}
+        </div>
+        <div class="card-footer">
+            <a href="/zaehler/{{ z.id }}" class="btn btn-link">Verlauf anzeigen →</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">📸</div>
+    <h2>Noch keine Zähler erfasst</h2>
+    <p>Senden Sie im Telegram-Bot ein Foto eines Zählers, um diesen zu erfassen.</p>
+</div>
+{% endif %}
+{% endblock %}

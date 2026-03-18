@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  zaehlererfassung:
+    build: .
+    container_name: zaehlererfassung
+    restart: unless-stopped
+    ports:
+      - "8094:8094"
+    volumes:
+      # Persistente Daten
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./output:/app/output
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BOT_PASSWORT=${BOT_PASSWORT:-}
+      - DASHBOARD_USER=${DASHBOARD_USER:-admin}
+      - DASHBOARD_PASSWORT=${DASHBOARD_PASSWORT:-}
+      - DATABASE_URL=sqlite:///./data/zaehlererfassung.db
+      - DASHBOARD_PORT=8094
+
+networks:
+  default:
+    name: zaehlererfassung-network
