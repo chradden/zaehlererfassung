@@ -1,6 +1,51 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Makro für Gebäude-Karte (muss vor Verwendung definiert sein) -->
+{% macro gebaeude_card(g) %}
+<div class="card gebaeude-card" data-gebaeude-id="{{ g.id }}" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+    <div class="card-header">
+        <h2>
+            <a href="/gebaeude/{{ g.id }}">🏠 {{ g.name }}</a>
+        </h2>
+        {% if g.adresse and g.adresse != '–' %}
+        <p class="adresse">📍 {{ g.adresse }}</p>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="stats-row">
+            <div class="stat">
+                <span class="stat-value">{{ g.zaehler_count }}</span>
+                <span class="stat-label">Zähler</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">{{ g.ablesungen_30_tage }}</span>
+                <span class="stat-label">Ablesungen (30T)</span>
+            </div>
+        </div>
+        
+        {% if g.letzte_ablesung %}
+        <p class="letzte-ablesung">
+            Letzte Ablesung: <strong>{{ g.letzte_ablesung.strftime('%d.%m.%Y') }}</strong>
+        </p>
+        {% else %}
+        <p class="letzte-ablesung muted">Noch keine Ablesungen</p>
+        {% endif %}
+    </div>
+    <div class="card-footer">
+        <a href="/gebaeude/{{ g.id }}" class="btn btn-primary">Details ansehen</a>
+        <a href="/export/{{ g.id }}/csv" class="btn btn-secondary">📥 CSV</a>
+        <select class="ordner-select" onchange="gebaeudeVerschieben({{ g.id }}, this.value)" title="In Ordner verschieben">
+            <option value="">📁 Ordner wählen...</option>
+            <option value="null" {% if not g.ordner_id %}selected{% endif %}>— Kein Ordner —</option>
+            {% for o in ordner %}
+            <option value="{{ o.id }}" {% if g.ordner_id == o.id %}selected{% endif %}>{{ o.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% endmacro %}
+
 <div class="page-header">
     <h1>📊 Gebäudeübersicht</h1>
     <p class="subtitle">{{ gebaeude|length }} Gebäude mit Zählern erfasst</p>
@@ -73,51 +118,6 @@
     <code>/gebaeude MeinGebäude</code>
 </div>
 {% endif %}
-
-<!-- Makro für Gebäude-Karte -->
-{% macro gebaeude_card(g) %}
-<div class="card gebaeude-card" data-gebaeude-id="{{ g.id }}" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
-    <div class="card-header">
-        <h2>
-            <a href="/gebaeude/{{ g.id }}">🏠 {{ g.name }}</a>
-        </h2>
-        {% if g.adresse and g.adresse != '–' %}
-        <p class="adresse">📍 {{ g.adresse }}</p>
-        {% endif %}
-    </div>
-    <div class="card-body">
-        <div class="stats-row">
-            <div class="stat">
-                <span class="stat-value">{{ g.zaehler_count }}</span>
-                <span class="stat-label">Zähler</span>
-            </div>
-            <div class="stat">
-                <span class="stat-value">{{ g.ablesungen_30_tage }}</span>
-                <span class="stat-label">Ablesungen (30T)</span>
-            </div>
-        </div>
-        
-        {% if g.letzte_ablesung %}
-        <p class="letzte-ablesung">
-            Letzte Ablesung: <strong>{{ g.letzte_ablesung.strftime('%d.%m.%Y') }}</strong>
-        </p>
-        {% else %}
-        <p class="letzte-ablesung muted">Noch keine Ablesungen</p>
-        {% endif %}
-    </div>
-    <div class="card-footer">
-        <a href="/gebaeude/{{ g.id }}" class="btn btn-primary">Details ansehen</a>
-        <a href="/export/{{ g.id }}/csv" class="btn btn-secondary">📥 CSV</a>
-        <select class="ordner-select" onchange="gebaeudeVerschieben({{ g.id }}, this.value)" title="In Ordner verschieben">
-            <option value="">📁 Ordner wählen...</option>
-            <option value="null" {% if not g.ordner_id %}selected{% endif %}>— Kein Ordner —</option>
-            {% for o in ordner %}
-            <option value="{{ o.id }}" {% if g.ordner_id == o.id %}selected{% endif %}>{{ o.name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-</div>
-{% endmacro %}
 
 <section class="info-section">
     <h2>📱 Zähler erfassen per Telegram</h2>
