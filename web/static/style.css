@@ -292,4 +292,79 @@ code { background: var(--gray-200); padding: 0.1em 0.4em; border-radius: 4px; fo
   .stats-row { gap: 1rem; }
   .stat-value { font-size: 1.5rem; }
   .table th, .table td { padding: 0.5rem; font-size: 0.9rem; }
+  .eich-summary { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ─── Eichfristen ───────────────────────────────────────────────────────── */
+.eich-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.eich-stat {
+  background: white;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--gray-300);
+}
+.eich-stat.eich-abgelaufen { border-left-color: var(--danger); }
+.eich-stat.eich-warnung { border-left-color: var(--warning); }
+.eich-stat.eich-ok { border-left-color: var(--success); }
+.eich-stat.eich-unbekannt { border-left-color: var(--gray-500); }
+.eich-count { display: block; font-size: 2rem; font-weight: 700; }
+.eich-label { display: block; font-size: 0.85rem; color: var(--gray-700); margin-top: 0.25rem; }
+
+.eich-row.eich-abgelaufen { background: #fde8e8; }
+.eich-row.eich-warnung { background: #fef3cd; }
+
+.text-danger { color: var(--danger); }
+.text-warning { color: var(--warning); }
+
+.badge-danger { background: var(--danger); color: white; }
+.badge-warning { background: var(--warning); color: white; }
+.badge-success { background: var(--success); color: white; }
+
+/* Eich-Badges auf Zähler-Karten */
+.eich-badge {
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  display: inline-block;
+}
+.eich-badge-danger { background: #fde8e8; color: var(--danger); font-weight: 600; }
+.eich-badge-warning { background: #fef3cd; color: #856404; }
+.eich-badge-ok { background: #d4edda; color: #155724; }
+.eich-badge-unknown { background: var(--gray-200); color: var(--gray-700); }
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: white;
+  border-radius: var(--radius);
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
+.form-control {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  font-size: 1rem;
+}
+.form-actions { display: flex; gap: 0.5rem; margin-top: 1.5rem; }

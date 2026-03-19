@@ -33,6 +33,14 @@ WICHTIG:
 
 3. Lies die ZÄHLERNUMMER ab (Kennzeichen, Eigentumsnummer, Seriennummer)
 
+4. EICHUNG / KALIBRIERUNG – Suche nach:
+   - Eichstempel (runde oder eckige Plakette, oft mit Jahreszahl)
+   - Aufschrift "Geeicht bis", "Eichgültig bis", "Eichfrist", "MID", "CE"
+   - Jahreszahlen auf dem Eichstempel (z.B. "23" = 2023)
+   - Eichsiegel mit Jahresangabe
+   - Bei MID-Zählern: Metrologie-Kennzeichnung mit Jahreszahl (z.B. M23 = geeicht 2023)
+   - Typische Eichfristen: Strom 8-16 Jahre, Gas 8 Jahre, Wasser 6 Jahre, Wärme 5 Jahre
+
 Antworte NUR mit validem JSON (kein Markdown, keine Erklärung):
 {
     "typ": "strom|gas|wasser|waerme|oel|solar|sonstig",
@@ -41,6 +49,9 @@ Antworte NUR mit validem JSON (kein Markdown, keine Erklärung):
     "zaehlernummer": "Nummer oder null",
     "hersteller": "Name oder null",
     "modell": "Modell oder null",
+    "eichjahr": 2023,
+    "eichfrist_bis": "2031-12-31",
+    "eichung_hinweis": "Beschreibung des erkannten Eichstempels oder null",
     "vertrauen": 0.95,
     "hinweise": "Kurze Notiz zur Erkennungsqualität"
 }
@@ -50,6 +61,12 @@ REGELN:
 - vertrauen: 0.0-1.0 (wie sicher bist du?)
 - Bei unlesbarem Stand: stand = null
 - Bei unklarem Typ: typ = "sonstig"
+- eichjahr: Jahr der letzten Eichung als Zahl (z.B. 2023) oder null wenn nicht erkennbar
+- eichfrist_bis: Geschätztes Ablaufdatum der Eichung als "YYYY-MM-DD" oder null
+  Falls nur Eichjahr erkannt: berechne Eichfrist anhand des Zählertyps:
+  Strom=8 Jahre, Gas=8 Jahre, Wasser (kalt)=6 Jahre, Wasser (warm)=5 Jahre, Wärme=5 Jahre
+  Das Enddatum ist immer der 31.12. des Ablaufjahres.
+- eichung_hinweis: Kurze Beschreibung was erkannt wurde (z.B. "Eichstempel 2023 sichtbar") oder null
 """
 
 
@@ -124,6 +141,9 @@ def _demo_analyse(dateipfad: str) -> dict:
         "zaehlernummer": f"DEMO-{random.randint(1000, 9999)}",
         "hersteller": "Demo-Hersteller",
         "modell": None,
+        "eichjahr": 2021,
+        "eichfrist_bis": "2029-12-31",
+        "eichung_hinweis": "DEMO: Simulierter Eichstempel 2021",
         "vertrauen": 0.85,
         "hinweise": "DEMO-MODUS: Kein OpenAI API Key konfiguriert",
     }

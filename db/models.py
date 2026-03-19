@@ -89,6 +89,9 @@ class Zaehler(Base):
     standort_detail = Column(String(200), nullable=True)  # z.B. "Keller", "Technikraum"
     hersteller = Column(String(100), nullable=True)
     modell = Column(String(100), nullable=True)
+    eichdatum = Column(Date, nullable=True)  # Datum der letzten Eichung
+    eichfrist_bis = Column(Date, nullable=True)  # Eichfrist gültig bis
+    eichung_hinweis = Column(String(300), nullable=True)  # KI-Hinweis oder manueller Kommentar
     notizen = Column(Text, nullable=True)
     erstellt_am = Column(DateTime, default=datetime.now)
 
@@ -107,6 +110,26 @@ class Zaehler(Base):
         if self.ablesungen:
             return max(self.ablesungen, key=lambda a: a.ablesedatum)
         return None
+
+    @property
+    def eichstatus(self):
+        """Gibt den Eichstatus zurück: 'ok', 'warnung', 'abgelaufen', 'unbekannt'."""
+        if not self.eichfrist_bis:
+            return "unbekannt"
+        from datetime import timedelta
+        heute = date.today()
+        if self.eichfrist_bis < heute:
+            return "abgelaufen"
+        elif self.eichfrist_bis <= heute + timedelta(days=365):
+            return "warnung"
+        return "ok"
+
+    @property
+    def eichfrist_tage(self):
+        """Gibt die Anzahl der Tage bis zum Ablauf der Eichfrist zurück (negativ = abgelaufen)."""
+        if not self.eichfrist_bis:
+            return None
+        return (self.eichfrist_bis - date.today()).days
 
 
 class Ablesung(Base):

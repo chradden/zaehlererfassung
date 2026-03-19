@@ -50,6 +50,24 @@
                 <span class="verbrauch-wert">{{ "%.2f"|format(z.verbrauch_letzte) }} {{ z.info.einheit }}</span>
             </div>
             {% endif %}
+            
+            {% if z.eichstatus == 'abgelaufen' %}
+            <div class="eich-badge eich-badge-danger">
+                🔴 Eichfrist abgelaufen{% if z.eichfrist_bis %} ({{ z.eichfrist_bis.strftime('%d.%m.%Y') }}){% endif %}
+            </div>
+            {% elif z.eichstatus == 'warnung' %}
+            <div class="eich-badge eich-badge-warning">
+                🟡 Eichfrist bis {{ z.eichfrist_bis.strftime('%d.%m.%Y') }} ({{ z.eichfrist_tage }} Tage)
+            </div>
+            {% elif z.eichstatus == 'ok' %}
+            <div class="eich-badge eich-badge-ok">
+                🟢 Geeicht bis {{ z.eichfrist_bis.strftime('%d.%m.%Y') }}
+            </div>
+            {% else %}
+            <div class="eich-badge eich-badge-unknown">
+                ⚪ Eichfrist unbekannt
+            </div>
+            {% endif %}
             {% else %}
             <p class="muted">Noch keine Ablesung</p>
             {% endif %}

@@ -16,6 +16,31 @@ from bot.keyboards import neuer_oder_ablesung_keyboard, standort_keyboard, zaehl
 logger = logging.getLogger(__name__)
 
 
+def _parse_eichfrist(ki_result: dict) -> date | None:
+    """Parst das Eichfrist-Datum aus dem KI-Ergebnis."""
+    eichfrist_str = ki_result.get("eichfrist_bis")
+    if eichfrist_str:
+        try:
+            return date.fromisoformat(eichfrist_str)
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _eichstatus_text(zaehler) -> str:
+    """Erzeugt einen Text zum Eichstatus eines Zählers."""
+    if not zaehler.eichfrist_bis:
+        return ""
+    tage = zaehler.eichfrist_tage
+    status = zaehler.eichstatus
+    if status == "abgelaufen":
+        return f"\n\n🔴 **Eichfrist abgelaufen!** (seit {abs(tage)} Tagen)\nEichfrist war bis: {zaehler.eichfrist_bis.strftime('%d.%m.%Y')}"
+    elif status == "warnung":
+        return f"\n\n🟡 **Eichfrist läuft bald ab!** (noch {tage} Tage)\nGültig bis: {zaehler.eichfrist_bis.strftime('%d.%m.%Y')}"
+    else:
+        return f"\n\n🟢 Eichfrist gültig bis: {zaehler.eichfrist_bis.strftime('%d.%m.%Y')} (noch {tage} Tage)"
+
+
 async def foto_ablesung(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Verarbeitet eingehende Fotos als Zählerablesung."""
     telegram_id = update.effective_user.id
@@ -100,6 +125,30 @@ async def foto_ablesung(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if zaehlernummer:
         text += f"🔢 Zählernummer: {zaehlernummer}\n"
+
+    # Eichinformationen anzeigen
+    eichjahr = ki_result.get("eichjahr")
+    eichfrist_str = ki_result.get("eichfrist_bis")
+    eichung_hinweis = ki_result.get("eichung_hinweis")
+    
+    if eichjahr or eichfrist_str:
+        text += f"\n🔏 **Eichung erkannt:**\n"
+        if eichjahr:
+            text += f"• Eichjahr: {eichjahr}\n"
+        if eichfrist_str:
+            eichfrist = _parse_eichfrist(ki_result)
+            if eichfrist:
+                tage_rest = (eichfrist - date.today()).days
+                if tage_rest < 0:
+                    text += f"• 🔴 Eichfrist abgelaufen seit {abs(tage_rest)} Tagen!\n"
+                elif tage_rest < 365:
+                    text += f"• 🟡 Eichfrist bis: {eichfrist.strftime('%d.%m.%Y')} (noch {tage_rest} Tage)\n"
+                else:
+                    text += f"• 🟢 Eichfrist bis: {eichfrist.strftime('%d.%m.%Y')}\n"
+        if eichung_hinweis:
+            text += f"• {eichung_hinweis}\n"
+    else:
+        text += f"\n🔏 Eichstempel: _nicht erkannt_\n"
 
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -195,6 +244,18 @@ async def _speichere_ablesung(update: Update, context: ContextTypes.DEFAULT_TYPE
         session.add(ablesung)
         session.flush()
 
+        # Eichdaten aktualisieren falls KI neue erkannt hat und Zähler keine hat
+        eichfrist = _parse_eichfrist(ki_result)
+        eichjahr = ki_result.get("eichjahr")
+        if eichfrist and not zaehler.eichfrist_bis:
+            zaehler.eichfrist_bis = eichfrist
+            if eichjahr:
+                try:
+                    zaehler.eichdatum = date(int(eichjahr), 1, 1)
+                except (ValueError, TypeError):
+                    pass
+            zaehler.eichung_hinweis = ki_result.get("eichung_hinweis")
+
         # Foto speichern
         if foto_pfad:
             foto = ZaehlerFoto(
@@ -221,6 +282,9 @@ async def _speichere_ablesung(update: Update, context: ContextTypes.DEFAULT_TYPE
             # Warnung bei negativem Verbrauch
             if ablesung.verbrauch < 0:
                 text += f"\n⚠️ **Achtung:** Negativer Verbrauch! Zählerstand prüfen."
+
+        # Eichstatus-Warnung
+        text += _eichstatus_text(zaehler)
 
     await update.message.reply_text(text, parse_mode="Markdown")
     
@@ -300,6 +364,18 @@ async def _speichere_ablesung_from_callback(query, context: ContextTypes.DEFAULT
         session.add(ablesung)
         session.flush()
 
+        # Eichdaten aktualisieren falls KI neue erkannt hat und Zähler keine hat
+        eichfrist = _parse_eichfrist(ki_result)
+        eichjahr = ki_result.get("eichjahr")
+        if eichfrist and not zaehler.eichfrist_bis:
+            zaehler.eichfrist_bis = eichfrist
+            if eichjahr:
+                try:
+                    zaehler.eichdatum = date(int(eichjahr), 1, 1)
+                except (ValueError, TypeError):
+                    pass
+            zaehler.eichung_hinweis = ki_result.get("eichung_hinweis")
+
         if foto_pfad:
             foto = ZaehlerFoto(
                 ablesung_id=ablesung.id,
@@ -316,6 +392,9 @@ async def _speichere_ablesung_from_callback(query, context: ContextTypes.DEFAULT
         if letzte_ablesung and ablesung.verbrauch is not None:
             text += f"\n📈 Verbrauch: **{ablesung.verbrauch:,.1f} {info['einheit']}**"
             text += f" ({ablesung.tage_seit_letzter} Tage)"
+
+        # Eichstatus-Warnung
+        text += _eichstatus_text(zaehler)
 
     await query.edit_message_text(text, parse_mode="Markdown")
     
@@ -360,10 +439,21 @@ async def _lege_zaehler_an(query, context: ContextTypes.DEFAULT_TYPE, standort: 
     hersteller = ki_result.get("hersteller")
     modell = ki_result.get("modell")
     vertrauen = ki_result.get("vertrauen", 0)
+    eichjahr = ki_result.get("eichjahr")
+    eichfrist = _parse_eichfrist(ki_result)
+    eichung_hinweis = ki_result.get("eichung_hinweis")
     
     info = ZAEHLER_INFO.get(typ, ZAEHLER_INFO["sonstig"])
 
     with get_session() as session:
+        # Eichdatum aus Eichjahr ableiten
+        eichdatum = None
+        if eichjahr:
+            try:
+                eichdatum = date(int(eichjahr), 1, 1)
+            except (ValueError, TypeError):
+                pass
+
         # Zähler anlegen
         zaehler = Zaehler(
             gebaeude_id=gebaeude_id,
@@ -373,6 +463,9 @@ async def _lege_zaehler_an(query, context: ContextTypes.DEFAULT_TYPE, standort: 
             standort_detail=standort,
             hersteller=hersteller,
             modell=modell,
+            eichdatum=eichdatum,
+            eichfrist_bis=eichfrist,
+            eichung_hinweis=eichung_hinweis,
         )
         session.add(zaehler)
         session.flush()
@@ -409,6 +502,18 @@ async def _lege_zaehler_an(query, context: ContextTypes.DEFAULT_TYPE, standort: 
     if stand is not None:
         text += f"\n📊 Erste Ablesung: {stand:,.1f} {info['einheit']}\n"
         text += f"➡️ Verbrauchsberechnung ab nächster Ablesung möglich."
+    
+    # Eichstatus anzeigen
+    if eichfrist:
+        tage_rest = (eichfrist - date.today()).days
+        if tage_rest < 0:
+            text += f"\n\n🔴 **Achtung: Eichfrist abgelaufen!** (seit {abs(tage_rest)} Tagen)"
+        elif tage_rest < 365:
+            text += f"\n\n🟡 Eichfrist läuft bald ab: {eichfrist.strftime('%d.%m.%Y')}"
+        else:
+            text += f"\n\n🟢 Eichfrist gültig bis: {eichfrist.strftime('%d.%m.%Y')}"
+    elif not eichjahr:
+        text += f"\n\n🔏 Eichstempel nicht erkannt – ggf. manuell nachtragen."
 
     await query.edit_message_text(text, parse_mode="Markdown")
     
@@ -460,8 +565,133 @@ async def text_notiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         return
 
+    # Manuelle Eichfrist-Eingabe: "Eichfrist: 31.12.2029" oder "Eichfrist: 2029"
+    if text.lower().startswith("eichfrist:"):
+        eich_str = text.split(":", 1)[1].strip()
+        try:
+            # Versuche verschiedene Formate
+            eichfrist = None
+            if "." in eich_str:
+                # Format: DD.MM.YYYY
+                parts = eich_str.split(".")
+                eichfrist = date(int(parts[2]), int(parts[1]), int(parts[0]))
+            elif len(eich_str) == 4:
+                # Nur Jahr: YYYY -> 31.12.YYYY
+                eichfrist = date(int(eich_str), 12, 31)
+            elif "-" in eich_str:
+                # ISO: YYYY-MM-DD
+                eichfrist = date.fromisoformat(eich_str)
+            
+            if not eichfrist:
+                raise ValueError("Ungültiges Format")
+
+            telegram_id = update.effective_user.id
+            with get_session() as session:
+                benutzer = session.query(Benutzer).filter_by(telegram_id=telegram_id).first()
+                if not benutzer or not benutzer.aktives_gebaeude_id:
+                    await update.message.reply_text("Kein aktives Gebäude gesetzt.")
+                    return
+                
+                # Alle Zähler des Gebäudes
+                zaehler_liste = session.query(Zaehler).filter_by(
+                    gebaeude_id=benutzer.aktives_gebaeude_id
+                ).all()
+                
+                if len(zaehler_liste) == 0:
+                    await update.message.reply_text("Keine Zähler im aktiven Gebäude.")
+                elif len(zaehler_liste) == 1:
+                    z = zaehler_liste[0]
+                    z.eichfrist_bis = eichfrist
+                    info = ZAEHLER_INFO.get(z.typ, ZAEHLER_INFO["sonstig"])
+                    await update.message.reply_text(
+                        f"✅ Eichfrist für {info['icon']} {info['name']}zähler "
+                        f"(Nr. {z.zaehlernummer or z.id}) gesetzt:\n"
+                        f"🔏 Gültig bis: **{eichfrist.strftime('%d.%m.%Y')}**",
+                        parse_mode="Markdown",
+                    )
+                else:
+                    await update.message.reply_text(
+                        "Mehrere Zähler vorhanden.\n"
+                        "Nutze: `Eichfrist <Zählernummer>: DD.MM.YYYY`",
+                        parse_mode="Markdown",
+                    )
+        except (ValueError, IndexError):
+            await update.message.reply_text(
+                "❌ Ungültiges Eichfrist-Format.\n"
+                "Beispiele:\n"
+                "• `Eichfrist: 31.12.2029`\n"
+                "• `Eichfrist: 2029`\n"
+                "• `Eichfrist: 2029-12-31`",
+                parse_mode="Markdown",
+            )
+        return
+
     # Sonst: Als Notiz zur letzten Ablesung?
     # (Kann später erweitert werden)
+
+
+async def eichung_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Zeigt den Eichstatus aller Zähler im aktiven Gebäude."""
+    telegram_id = update.effective_user.id
+
+    with get_session() as session:
+        benutzer = session.query(Benutzer).filter_by(telegram_id=telegram_id).first()
+        if not benutzer:
+            await update.message.reply_text("Bitte zuerst /start ausführen.")
+            return
+
+        if not benutzer.aktives_gebaeude_id:
+            await update.message.reply_text("Kein aktives Gebäude. Erstelle eins mit /gebaeude <Name>")
+            return
+
+        gebaeude = session.get(Gebaeude, benutzer.aktives_gebaeude_id)
+        zaehler_liste = session.query(Zaehler).filter_by(
+            gebaeude_id=benutzer.aktives_gebaeude_id
+        ).all()
+
+        if not zaehler_liste:
+            await update.message.reply_text("Noch keine Zähler im aktiven Gebäude.")
+            return
+
+        text = f"🔏 **Eichfristen – {gebaeude.name}**\n"
+        text += f"_(DIN ISO 50001 Konformität)_\n\n"
+
+        abgelaufen = 0
+        warnung = 0
+
+        for z in zaehler_liste:
+            info = ZAEHLER_INFO.get(z.typ, ZAEHLER_INFO["sonstig"])
+            nr = z.zaehlernummer or f"#{z.id}"
+            
+            status = z.eichstatus
+            if status == "abgelaufen":
+                icon = "🔴"
+                detail = f"ABGELAUFEN (seit {abs(z.eichfrist_tage)} Tagen)"
+                abgelaufen += 1
+            elif status == "warnung":
+                icon = "🟡"
+                detail = f"Noch {z.eichfrist_tage} Tage (bis {z.eichfrist_bis.strftime('%d.%m.%Y')})"
+                warnung += 1
+            elif status == "ok":
+                icon = "🟢"
+                detail = f"Gültig bis {z.eichfrist_bis.strftime('%d.%m.%Y')}"
+            else:
+                icon = "⚪"
+                detail = "Eichfrist unbekannt"
+
+            text += f"{icon} {info['icon']} {info['name']} ({nr}): {detail}\n"
+
+        text += f"\n──────────\n"
+        if abgelaufen:
+            text += f"⚠️ **{abgelaufen} Zähler mit abgelaufener Eichfrist!**\n"
+        if warnung:
+            text += f"⏰ {warnung} Zähler mit Eichfrist < 1 Jahr\n"
+        if not abgelaufen and not warnung:
+            text += "✅ Alle Eichfristen in Ordnung.\n"
+
+        text += f"\n_Eichfrist manuell setzen:_ `Eichfrist: DD.MM.YYYY`"
+
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 def get_ablesung_callback_handler():

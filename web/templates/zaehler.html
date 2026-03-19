@@ -43,6 +43,32 @@
         <span class="value">{{ zaehler.modell }}</span>
     </div>
     {% endif %}
+    <div class="meta-item">
+        <span class="label">Eichstatus:</span>
+        <span class="value">
+            {% if zaehler.eichstatus == 'abgelaufen' %}
+            <span class="badge badge-danger">🔴 Abgelaufen{% if zaehler.eichfrist_bis %} (seit {{ zaehler.eichfrist_tage | abs }} Tagen){% endif %}</span>
+            {% elif zaehler.eichstatus == 'warnung' %}
+            <span class="badge badge-warning">🟡 Läuft ab am {{ zaehler.eichfrist_bis.strftime('%d.%m.%Y') }} (noch {{ zaehler.eichfrist_tage }} Tage)</span>
+            {% elif zaehler.eichstatus == 'ok' %}
+            <span class="badge badge-success">🟢 Gültig bis {{ zaehler.eichfrist_bis.strftime('%d.%m.%Y') }}</span>
+            {% else %}
+            <span class="badge badge-secondary">⚪ Unbekannt</span>
+            {% endif %}
+        </span>
+    </div>
+    {% if zaehler.eichdatum %}
+    <div class="meta-item">
+        <span class="label">Eichdatum:</span>
+        <span class="value">{{ zaehler.eichdatum.strftime('%d.%m.%Y') }}</span>
+    </div>
+    {% endif %}
+    {% if zaehler.eichung_hinweis %}
+    <div class="meta-item">
+        <span class="label">Eich-Hinweis:</span>
+        <span class="value">{{ zaehler.eichung_hinweis }}</span>
+    </div>
+    {% endif %}
 </div>
 
 {% if chart_labels|length > 1 %}

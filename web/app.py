@@ -164,6 +164,11 @@ async def gebaeude_detail(
                 "letzte_ablesung": letzte.ablesedatum if letzte else None,
                 "verbrauch_letzte": verbrauch_letzte,
                 "anzahl_ablesungen": len(ablesungen),
+                "eichfrist_bis": z.eichfrist_bis,
+                "eichstatus": z.eichstatus,
+                "eichfrist_tage": z.eichfrist_tage,
+                "eichdatum": z.eichdatum,
+                "eichung_hinweis": z.eichung_hinweis,
             })
         
         return templates.TemplateResponse(
@@ -244,6 +249,11 @@ async def zaehler_detail(
                     "zaehlernummer": zaehler.zaehlernummer or "–",
                     "hersteller": zaehler.hersteller,
                     "modell": zaehler.modell,
+                    "eichfrist_bis": zaehler.eichfrist_bis,
+                    "eichstatus": zaehler.eichstatus,
+                    "eichfrist_tage": zaehler.eichfrist_tage,
+                    "eichdatum": zaehler.eichdatum,
+                    "eichung_hinweis": zaehler.eichung_hinweis,
                 },
                 "ablesungen": ablesungen_daten,
                 "chart_labels": chart_labels,
@@ -512,3 +522,82 @@ async def gebaeude_in_ordner(gebaeude_id: int, request: Request, auth=Depends(au
         
         gebaeude.ordner_id = ordner_id
         return {"success": True, "ordner_id": ordner_id}
+
+
+# ─── Eichfrist-Verwaltung ────────────────────────────────────────────────
+
+@app.put("/api/zaehler/{zaehler_id}/eichung")
+async def eichung_aktualisieren(zaehler_id: int, request: Request, auth=Depends(auth_pruefen)):
+    """Eichfrist eines Zählers manuell setzen oder aktualisieren."""
+    data = await request.json()
+    
+    with get_session() as session:
+        zaehler = session.get(Zaehler, zaehler_id)
+        if not zaehler:
+            raise HTTPException(status_code=404, detail="Zähler nicht gefunden")
+        
+        eichdatum_str = data.get("eichdatum")
+        eichfrist_bis_str = data.get("eichfrist_bis")
+        eichung_hinweis = data.get("eichung_hinweis")
+        
+        if eichdatum_str:
+            try:
+                zaehler.eichdatum = date.fromisoformat(eichdatum_str)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Ungültiges Eichdatum (Format: YYYY-MM-DD)")
+        
+        if eichfrist_bis_str:
+            try:
+                zaehler.eichfrist_bis = date.fromisoformat(eichfrist_bis_str)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Ungültiges Eichfrist-Datum (Format: YYYY-MM-DD)")
+        
+        if eichung_hinweis is not None:
+            zaehler.eichung_hinweis = eichung_hinweis
+        
+        return {
+            "success": True,
+            "zaehler_id": zaehler.id,
+            "eichdatum": str(zaehler.eichdatum) if zaehler.eichdatum else None,
+            "eichfrist_bis": str(zaehler.eichfrist_bis) if zaehler.eichfrist_bis else None,
+            "eichstatus": zaehler.eichstatus,
+        }
+
+
+@app.get("/api/eichfristen", response_class=HTMLResponse)
+async def eichfristen_uebersicht(request: Request, auth=Depends(auth_pruefen)):
+    """Übersicht aller Zähler mit Eichfrist-Status."""
+    with get_session() as session:
+        zaehler_liste = session.query(Zaehler).all()
+        
+        ergebnis = []
+        for z in zaehler_liste:
+            gebaeude = session.get(Gebaeude, z.gebaeude_id)
+            info = ZAEHLER_INFO.get(z.typ, ZAEHLER_INFO["sonstig"])
+            ergebnis.append({
+                "zaehler_id": z.id,
+                "gebaeude_name": gebaeude.name if gebaeude else "–",
+                "gebaeude_id": z.gebaeude_id,
+                "typ": info["name"],
+                "icon": info["icon"],
+                "zaehlernummer": z.zaehlernummer or "–",
+                "standort": z.standort_detail or "–",
+                "eichdatum": str(z.eichdatum) if z.eichdatum else None,
+                "eichfrist_bis": str(z.eichfrist_bis) if z.eichfrist_bis else None,
+                "eichstatus": z.eichstatus,
+                "eichfrist_tage": z.eichfrist_tage,
+                "eichung_hinweis": z.eichung_hinweis,
+            })
+        
+        # Sortieren: abgelaufen zuerst, dann warnung, dann ok, dann unbekannt
+        status_order = {"abgelaufen": 0, "warnung": 1, "ok": 2, "unbekannt": 3}
+        ergebnis.sort(key=lambda x: (status_order.get(x["eichstatus"], 4), x.get("eichfrist_tage") or 99999))
+        
+        return templates.TemplateResponse(
+            "eichfristen.html",
+            {
+                "request": request,
+                "titel": "Eichfristen-Übersicht (DIN ISO 50001)",
+                "zaehler": ergebnis,
+            },
+        )

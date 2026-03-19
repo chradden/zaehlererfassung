@@ -22,6 +22,7 @@ from bot.handlers.standort import standort_command, standort_location
 from bot.handlers.ablesung import (
     foto_ablesung,
     text_notiz,
+    eichung_command,
     get_ablesung_callback_handler,
     get_standort_callback_handler,
 )
@@ -53,6 +54,7 @@ def _build_app():
     app.add_handler(CommandHandler("bericht", bericht_command))
     app.add_handler(CommandHandler("export", export_command))
     app.add_handler(CommandHandler("standort", standort_command))
+    app.add_handler(CommandHandler("eichung", eichung_command))
     app.add_handler(CommandHandler("name", name_aendern))
     app.add_handler(CommandHandler("hilfe", hilfe_command))
     app.add_handler(CommandHandler("help", hilfe_command))

@@ -226,6 +226,11 @@ async def hilfe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 📍 Standort teilen – Adresse hinterlegen
 🎤 Sprachnachricht – Notiz zur Ablesung
 
+**Eichfristen (DIN ISO 50001):**
+/eichung – Eichstatus aller Zähler prüfen
+`Eichfrist: DD.MM.YYYY` – Eichfrist manuell setzen
+(Die KI versucht den Eichstempel automatisch vom Foto zu lesen)
+
 **Berichte & Export:**
 /bericht – Word-Bericht erstellen
 /export – CSV-Export aller Ablesungen
@@ -234,6 +239,6 @@ async def hilfe_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /name <Name> – Eigenen Namen ändern
 /hilfe – Diese Hilfe anzeigen
 
-**Tipp:** Einfach Zählerfotos senden – die KI erkennt Typ und Stand automatisch!"""
+**Tipp:** Einfach Zählerfotos senden – die KI erkennt Typ, Stand und Eichstempel automatisch!"""
 
     await update.message.reply_text(text, parse_mode="Markdown")

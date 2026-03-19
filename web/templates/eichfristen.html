@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<nav class="breadcrumb">
+    <a href="/">Dashboard</a> &raquo; <span>Eichfristen</span>
+</nav>
+
+<div class="page-header">
+    <h1>🔏 Eichfristen-Übersicht</h1>
+    <p class="subtitle">DIN ISO 50001 – Überwachung der Eichgültigkeit aller Zähler</p>
+</div>
+
+{% set abgelaufen = zaehler | selectattr('eichstatus', 'equalto', 'abgelaufen') | list %}
+{% set warnung = zaehler | selectattr('eichstatus', 'equalto', 'warnung') | list %}
+{% set ok = zaehler | selectattr('eichstatus', 'equalto', 'ok') | list %}
+{% set unbekannt = zaehler | selectattr('eichstatus', 'equalto', 'unbekannt') | list %}
+
+<div class="eich-summary">
+    <div class="eich-stat eich-abgelaufen">
+        <span class="eich-count">{{ abgelaufen | length }}</span>
+        <span class="eich-label">🔴 Abgelaufen</span>
+    </div>
+    <div class="eich-stat eich-warnung">
+        <span class="eich-count">{{ warnung | length }}</span>
+        <span class="eich-label">🟡 &lt; 1 Jahr</span>
+    </div>
+    <div class="eich-stat eich-ok">
+        <span class="eich-count">{{ ok | length }}</span>
+        <span class="eich-label">🟢 Gültig</span>
+    </div>
+    <div class="eich-stat eich-unbekannt">
+        <span class="eich-count">{{ unbekannt | length }}</span>
+        <span class="eich-label">⚪ Unbekannt</span>
+    </div>
+</div>
+
+{% if zaehler %}
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Gebäude</th>
+                <th>Zähler</th>
+                <th>Nummer</th>
+                <th>Standort</th>
+                <th>Eichdatum</th>
+                <th>Gültig bis</th>
+                <th>Restlaufzeit</th>
+                <th>Hinweis</th>
+                <th>Aktion</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for z in zaehler %}
+            <tr class="eich-row eich-{{ z.eichstatus }}">
+                <td>
+                    {% if z.eichstatus == 'abgelaufen' %}
+                    <span class="badge badge-danger">🔴 Abgelaufen</span>
+                    {% elif z.eichstatus == 'warnung' %}
+                    <span class="badge badge-warning">🟡 Bald fällig</span>
+                    {% elif z.eichstatus == 'ok' %}
+                    <span class="badge badge-success">🟢 Gültig</span>
+                    {% else %}
+                    <span class="badge badge-secondary">⚪ Unbekannt</span>
+                    {% endif %}
+                </td>
+                <td><a href="/gebaeude/{{ z.gebaeude_id }}">{{ z.gebaeude_name }}</a></td>
+                <td>{{ z.icon }} {{ z.typ }}</td>
+                <td>{{ z.zaehlernummer }}</td>
+                <td>{{ z.standort }}</td>
+                <td>{{ z.eichdatum if z.eichdatum else '–' }}</td>
+                <td><strong>{{ z.eichfrist_bis if z.eichfrist_bis else '–' }}</strong></td>
+                <td>
+                    {% if z.eichfrist_tage is not none %}
+                        {% if z.eichfrist_tage < 0 %}
+                        <strong class="text-danger">{{ z.eichfrist_tage | abs }} Tage überfällig</strong>
+                        {% elif z.eichfrist_tage < 365 %}
+                        <strong class="text-warning">{{ z.eichfrist_tage }} Tage</strong>
+                        {% else %}
+                        {{ z.eichfrist_tage }} Tage
+                        {% endif %}
+                    {% else %}
+                    –
+                    {% endif %}
+                </td>
+                <td>{{ z.eichung_hinweis or '–' }}</td>
+                <td>
+                    <button class="btn btn-sm btn-secondary" onclick="eichfristBearbeiten({{ z.zaehler_id }}, '{{ z.eichdatum or '' }}', '{{ z.eichfrist_bis or '' }}')">
+                        ✏️
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">🔏</div>
+    <h2>Keine Zähler erfasst</h2>
+    <p>Erfassen Sie Zähler über den Telegram-Bot, um deren Eichfristen zu verwalten.</p>
+</div>
+{% endif %}
+
+<!-- Modal für Eichfrist-Bearbeitung -->
+<div id="eichModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h3>🔏 Eichfrist bearbeiten</h3>
+        <form id="eichForm">
+            <input type="hidden" id="eichZaehlerId">
+            <div class="form-group">
+                <label for="eichDatum">Eichdatum (letzter Eichtermin):</label>
+                <input type="date" id="eichDatum" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="eichFristBis">Eichfrist gültig bis:</label>
+                <input type="date" id="eichFristBis" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="eichHinweis">Hinweis (optional):</label>
+                <input type="text" id="eichHinweis" class="form-control" placeholder="z.B. Manuell eingetragen">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">💾 Speichern</button>
+                <button type="button" class="btn btn-secondary" onclick="eichModalSchliessen()">Abbrechen</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function eichfristBearbeiten(zaehlerId, eichdatum, eichfristBis) {
+    document.getElementById('eichZaehlerId').value = zaehlerId;
+    document.getElementById('eichDatum').value = eichdatum || '';
+    document.getElementById('eichFristBis').value = eichfristBis || '';
+    document.getElementById('eichHinweis').value = '';
+    document.getElementById('eichModal').style.display = 'flex';
+}
+
+function eichModalSchliessen() {
+    document.getElementById('eichModal').style.display = 'none';
+}
+
+document.getElementById('eichForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const zaehlerId = document.getElementById('eichZaehlerId').value;
+    const data = {
+        eichdatum: document.getElementById('eichDatum').value || null,
+        eichfrist_bis: document.getElementById('eichFristBis').value || null,
+        eichung_hinweis: document.getElementById('eichHinweis').value || null,
+    };
+    
+    const resp = await fetch(`/api/zaehler/${zaehlerId}/eichung`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+    });
+    
+    if (resp.ok) {
+        location.reload();
+    } else {
+        const err = await resp.json();
+        alert('Fehler: ' + (err.detail || 'Unbekannter Fehler'));
+    }
+});
+
+// Modal schließen bei Klick außerhalb
+document.getElementById('eichModal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('eichModal')) {
+        eichModalSchliessen();
+    }
+});
+</script>
+{% endblock %}
